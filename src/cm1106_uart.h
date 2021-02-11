@@ -5,7 +5,7 @@
     #include <SoftwareSerial.h>
 
 
-    #define CM1106_DEBUG  1             // Uncomment for debug messages
+    //#define CM1106_DEBUG  1             // Uncomment for debug messages
 
     #if (CM1106_DEBUG)
         #define _CM1106_DEBUG_SERIAL 1   // Serial communication for debug: 0 = Softserial, 1 = Hardware Serial, 2 = Hardware Serial Port 2
