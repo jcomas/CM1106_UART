@@ -1,0 +1,16 @@
+# Syntax Coloring for CM1106_UART Library
+# Datatypes (KEYWORD1)
+CM1106_UART	KEYWORD1
+
+# Methods and Functions (KEYWORD2)
+get_serial_number	KEYWORD2
+get_software_version	KEYWORD2
+get_co2			KEYWORD2
+start_calibration	KEYWORD2
+set_ABC			KEYWORD2
+
+# Constants (LITERAL1)
+CM1106_ABC_OPEN    	LITERAL1
+CM1106_ABC_CLOSE  	LITERAL1
+CM1106_LEN_SN 		LITERAL1
+CM1106_LEN_SOFTVER 	LITERAL1
