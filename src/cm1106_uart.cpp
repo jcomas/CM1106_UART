@@ -189,7 +189,7 @@ bool CM1106_UART::start_calibration(uint16_t concentration) {
 bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, uint16_t base) {
     bool result = false;
 
-    if ((open_close == CM1106_ABC_OPEN || open_close == CM1106_ABC_CLOSE) && cycle >= 1 && cycle <= 30 && base >= 400 && base <= 1500) {
+    if ((open_close == CM1106_ABC_OPEN || open_close == CM1106_ABC_CLOSE) && cycle >= 1 && cycle <= 7 && base >= 400 && base <= 1499) {
         memcpy(buf_msg, cmd_set_ABC, sizeof(cmd_set_ABC));
         buf_msg[3] = 0x64;
         buf_msg[4] = open_close;
@@ -223,6 +223,38 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, uint16_t base) {
 
     }
     return result;
+}
+
+
+/* Setting ABC */
+bool CM1106_UART::get_ABC(CM1106_ABC *abc) {
+    bool result = false;
+
+    if (abc == NULL)
+        return result;
+
+    abc->open_close = 0; abc->cycle = 0; abc->base = 0;
+
+    // Get ABC parameters
+    memcpy(buf_msg, cmd_get_ABC, sizeof(cmd_get_ABC));
+    serial_write_bytes(sizeof(cmd_get_ABC));
+
+    uint8_t nb = serial_read_bytes(10, CM1106_TIMEOUT);
+
+    if (nb == 10 && buf_msg[0] == 0x16 && buf_msg[1] == 0x07 && buf_msg[2] == 0x0f && buf_msg[9] == calculate_cs(nb)) {
+        abc->open_close = buf_msg[4];
+        abc->cycle = buf_msg[5];
+        abc->base = (buf_msg[6] * 256) + buf_msg[7];        
+        result = true;
+    } else {
+        
+#ifdef CM1106_DEBUG            
+            CM1106_DEBUG_SERIAL.println("DEBUG: Inesperated response!");
+#endif
+
+    }
+    return result;
+
 }
 
 
