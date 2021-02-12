@@ -9,14 +9,11 @@
 #define BAUDRATE 9600                                      // Device to CM1106 Serial baudrate (should not be changed)
 
 
-SoftwareSerial CM1106_Serial(CM1106_RX_PIN, CM1106_TX_PIN);
-CM1106_UART *sensor_CM1106;
+SoftwareSerial CM1106_serial(CM1106_RX_PIN, CM1106_TX_PIN);
 
-struct {
-    char sn[CM1106_LEN_SN + 1];
-    char softver[CM1106_LEN_SOFTVER + 1];
-    uint16_t co2;
-} sensor;
+CM1106_UART *sensor_CM1106;
+CM1106_sensor sensor;
+CM1106_ABC abc;
 
 
 void setup() {
@@ -26,14 +23,14 @@ void setup() {
     Serial.println("");
 
     // Initialize sensor
-    CM1106_Serial.begin(BAUDRATE);
-    sensor_CM1106 = new CM1106_UART(CM1106_Serial);
+    CM1106_serial.begin(BAUDRATE);
+    sensor_CM1106 = new CM1106_UART(CM1106_serial);
 
     // Check if CM1106 is available
     sensor_CM1106->get_software_version(sensor.softver);
     if (strncmp(sensor.softver, "CM", 2)) {
-      Serial.printf("CM1106 not found!");
-      while (1) { delay(1); };
+        Serial.printf("CM1106 not found!");
+       while (1) { delay(1); };
     } 
 
     // Show sensor info
@@ -42,21 +39,35 @@ void setup() {
     Serial.printf("Serial number: %s\n", sensor.sn);
     Serial.printf("Software version: %s\n", sensor.softver);
 
-    // Setup sensor
+    // Setup ABC parameters
     Serial.println("Setting ABC parameters...");
-    sensor_CM1106->set_ABC(CM1106_ABC_OPEN, 15, 400);    // 15 days cycle, 400 ppm for base
+    sensor_CM1106->set_ABC(CM1106_ABC_OPEN, 7, 1499);    // 15 days cycle, 400 ppm for base
 
+    // Getting ABC parameters
+    if (sensor_CM1106->get_ABC(&abc)) {
+        Serial.println("ABC parameters:");
+        if (abc.open_close == CM1106_ABC_OPEN) {
+            Serial.println("Auto calibration is enabled");
+        } else if (abc.open_close == CM1106_ABC_CLOSE) {
+            Serial.println("Auto calibration is disabled");
+        }
+        Serial.printf("Calibration cycle: %d\n", abc.cycle);
+        Serial.printf("Calibration baseline: %d\n", abc.base);
+    }
+
+    // Start calibration
     Serial.println("Starting calibration...");
     sensor_CM1106->start_calibration(400);
 
     Serial.println("Setup done!");
+
 }
 
 
 void loop() {
 
-    sensor.co2 = sensor_CM1106->get_co2();
-    Serial.printf("CO2 value: %u ppm\n", sensor.co2);    
+    //sensor.co2 = sensor_CM1106->get_co2();
+    //Serial.printf("CO2 value: %u ppm\n", sensor.co2);    
     //Serial.printf("/*%u*/\n", sensor.co2);   // Format to use with Serial Studio program
 
     delay(5000);
