@@ -41,7 +41,7 @@ void setup() {
 
     // Setup ABC parameters
     Serial.println("Setting ABC parameters...");
-    sensor_CM1106->set_ABC(CM1106_ABC_OPEN, 7, 1499);    // 15 days cycle, 400 ppm for base
+    sensor_CM1106->set_ABC(CM1106_ABC_OPEN, 7, 415);    // 7 days cycle, 415 ppm for base
 
     // Getting ABC parameters
     if (sensor_CM1106->get_ABC(&abc)) {
@@ -66,8 +66,9 @@ void setup() {
 
 void loop() {
 
-    //sensor.co2 = sensor_CM1106->get_co2();
-    //Serial.printf("CO2 value: %u ppm\n", sensor.co2);    
+    sensor.co2 = sensor_CM1106->get_co2();
+
+    Serial.printf("CO2 value: %d ppm\n", sensor.co2);   
     //Serial.printf("/*%u*/\n", sensor.co2);   // Format to use with Serial Studio program
 
     delay(5000);
