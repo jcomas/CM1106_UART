@@ -31,7 +31,7 @@ SOFTWARE.
     #include <SoftwareSerial.h>
 
 
-    #define CM1106_DEBUG  1             // Uncomment for debug messages
+    //#define CM1106_DEBUG  1             // Uncomment for debug messages
 
     #if (CM1106_DEBUG)
         #define _CM1106_DEBUG_SERIAL 1   // Serial communication for debug: 0 = Softserial, 1 = Hardware Serial, 2 = Hardware Serial Port 2
@@ -49,27 +49,40 @@ SOFTWARE.
     #endif
 
 
+    //#define CM1106_ADVANCED_FUNC  1      // Don't uncomment, can be dangerous, internal use functions
+
+
     #define CM1106_TIMEOUT  5     // Timeout for communication
 
-    #define CM1106_ABC_OPEN   0   // Open ABC
-    #define CM1106_ABC_CLOSE  2   // Close ABC
+    #define CM1106_ABC_OPEN   0   // Open ABC (enable auto calibration)
+    #define CM1106_ABC_CLOSE  2   // Close ABC (disable auto calibration)
 
     #define CM1106_LEN_SN       20   // Length of serial number
     #define CM1106_LEN_SOFTVER  10   // Length of software version
 
     #define CM1106_LEN_BUF_MSG  20   // Max length of buffer for communication with the sensor
+    #define CM1106_MSG_IP     0x11   // Packet identifier byte of sensor communication response 
+    #define CM1106_MSG_ACK    0x16   // ACK byte of sensor communication response 
+    #define CM1106_MSG_NAK    0x06   // NAK byte of sensor communication response 
 
+    /* messages to send to the sensor*/
+    #define CM1106_CMD_GET_CO2                0x01   // Ask CO2 measure of sensor
+    #define CM1106_CMD_START_CALIBRATION      0x03   // Ask to start calibration
+    #define CM1106_CMD_GET_ABC                0x0F   // Ask ABC parameters
+    #define CM1106_CMD_SET_ABC                0x10   // Set ABC parameters
+    #define CM1106_CMD_GET_SOFTWARE_VERSION   0x1E   // Ask software version of sensor
+    #define CM1106_CMD_GET_SERIAL_NUMBER      0x1F   // Ask serial number of sensor
 
     struct CM1106_ABC {
         uint8_t open_close;
         uint8_t cycle; 
-        uint16_t base;
+        int16_t base;
     };
 
     struct CM1106_sensor {
         char sn[CM1106_LEN_SN + 1];
         char softver[CM1106_LEN_SOFTVER + 1];
-        uint16_t co2;
+        int16_t co2;
     };
 
 
@@ -79,27 +92,33 @@ SOFTWARE.
             CM1106_UART(Stream &serial);                                        // Initialize
             void get_serial_number(char sn[]);                                  // Get serial number
             void get_software_version(char softver[]);                          // Get software version
-            uint16_t get_co2();                                                 // Get CO2 value in ppm
-            bool start_calibration(uint16_t concentration);                     // Start calibration
-            bool set_ABC(uint8_t open_close, uint8_t cycle, uint16_t base);     // Set ABC parameters
+            int16_t get_co2();                                                  // Get CO2 value in ppm
+            bool start_calibration(int16_t concentration);                      // Start single point calibration
+                                                                                   // Before calibration, please make sure CO 2 concentration in current ambient 
+                                                                                   // is calibration target value. Keeping this CO2 concentration for two 2 minutes,
+                                                                                   // and then began calibration.
+            bool set_ABC(uint8_t open_close, uint8_t cycle, int16_t base);      // Set ABC parameters (enable (open)/disable(close) auto calibration, cycle days, baseline co2)
             bool get_ABC(CM1106_ABC *abc);                                      // Get ABC parameters
+
+#ifdef CM1106_ADVANCED_FUNC
+            void detect_commands();                                             // Detect implemented commands
+            void test_implemented();                                            // Check implemented commands
+#endif
 
         private:
             Stream* mySerial;                                                   // Communication serial with the sensor
             uint8_t buf_msg[CM1106_LEN_BUF_MSG];                                // Buffer for communication messages with the sensor
 
-            /* messages to send to the sensor*/
-            uint8_t cmd_get_serial_number[4] = {0x11, 0x01, 0x1F, 0xCF};        // Ask serial number of sensor
-            uint8_t cmd_get_software_version[4] = {0x11, 0x01, 0x1E, 0xD0};     // Ask software version of sensor
-            uint8_t cmd_get_co2[4] = {0x11, 0x01, 0x01, 0xED};                  // Ask CO2 measure of sensor
-            uint8_t cmd_start_calibration[3] = {0x11, 0x03, 0x03};              // Ask to start calibration
-            uint8_t cmd_set_ABC[3] = {0x11, 0x07, 0x10};                        // Set ABC parameters
-            uint8_t cmd_get_ABC[4] = {0x11, 0x01, 0x0F, 0xDF};                  // Ask ABC parameters
+
 
             void serial_write_bytes(uint8_t size);                              // Send bytes to sensor
             uint8_t serial_read_bytes(uint8_t max_bytes, int timeout_seconds);  // Read received bytes from sensor
+            bool valid_response(uint8_t cmd, uint8_t nb);                       // Check if response is valid according to sent command
+            void send_cmd(uint8_t cmd);                                         // Send command without additional data
+            void send_cmd_data(uint8_t cmd, uint8_t size);                      // Send command with additional data
             uint8_t calculate_cs(uint8_t nb);                                   // Calculate checksum of packet
             void print_buffer(uint8_t size);                                    // Show buffer in hex bytes
+
     };
 
 #endif

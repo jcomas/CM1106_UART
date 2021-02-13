@@ -49,16 +49,16 @@ void CM1106_UART::get_serial_number(char sn[] ) {
     strcpy(sn, "");
 
     // Ask serial number
-    memcpy(buf_msg, cmd_get_serial_number, sizeof(cmd_get_serial_number));
-    serial_write_bytes(sizeof(cmd_get_serial_number));
+    send_cmd(CM1106_CMD_GET_SERIAL_NUMBER);
 
     // Wait response
-    memset(buf_msg, 0, sizeof(buf_msg));
+    memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
     uint8_t nb = serial_read_bytes(14, CM1106_TIMEOUT);
 
-    if (nb == 14 && buf_msg[0] == 0x16 && buf_msg[1] == 0x0b && buf_msg[2] == 0x1f && buf_msg[13] == calculate_cs(nb)) {
-    
-        int sn_int;
+    // Check response and get data
+    if (nb == 14 && valid_response(CM1106_CMD_GET_SERIAL_NUMBER, nb)) {
+
+        uint16_t sn_int;
         char sn_string[5];
 
         for (int i = 0; i < 5; i++)
@@ -93,14 +93,14 @@ void CM1106_UART::get_software_version(char softver[]) {
     strcpy(softver, "");
 
     // Ask software version
-    memcpy(buf_msg, cmd_get_software_version, sizeof(cmd_get_software_version));
-    serial_write_bytes(sizeof(cmd_get_software_version));
+    send_cmd(CM1106_CMD_GET_SOFTWARE_VERSION);
 
     // Wait response
-    memset(buf_msg, 0, sizeof(buf_msg));
+    memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
     uint8_t nb = serial_read_bytes(15, CM1106_TIMEOUT);
 
-    if (nb == 15 && buf_msg[0] == 0x16 && buf_msg[1] == 0x0c && buf_msg[2] == 0x1e && buf_msg[14] == calculate_cs(nb)) {
+    // Check response and get data
+    if (nb == 15 && valid_response(CM1106_CMD_GET_SOFTWARE_VERSION, nb)) {
       strncpy(softver, (const char *)&buf_msg[3], CM1106_LEN_SOFTVER);
 
 #ifdef CM1106_DEBUG        
@@ -119,22 +119,23 @@ void CM1106_UART::get_software_version(char softver[]) {
 
 
 /* Get CO2 value in ppm */
-uint16_t CM1106_UART::get_co2() {
+int16_t CM1106_UART::get_co2() {
 
-    uint16_t co2 = 0;
+    int16_t co2 = 0;
 
     // Ask CO2 value
-    memcpy(buf_msg, cmd_get_co2, sizeof(cmd_get_co2));
-    serial_write_bytes(sizeof(cmd_get_co2));
+    send_cmd(CM1106_CMD_GET_CO2);
 
     // Wait response
-    memset(buf_msg, 0, sizeof(buf_msg));
+    memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
     uint8_t nb = serial_read_bytes(8, CM1106_TIMEOUT);
-    if (nb == 8 && buf_msg[0] == 0x16 && buf_msg[1] == 0x05 && buf_msg[2] == 0x01 && buf_msg[7] == calculate_cs(nb)) {
+
+    // Check response and get data
+    if (nb == 8 && valid_response(CM1106_CMD_GET_CO2, nb)) {
         co2 = (buf_msg[3] * 256) + buf_msg[4];
 
 #ifdef CM1106_DEBUG
-        CM1106_DEBUG_SERIAL.printf("DEBUG: CO2 value = %u ppm\n", co2);
+        CM1106_DEBUG_SERIAL.printf("DEBUG: CO2 value = %d ppm\n", co2);
 #endif
 
     } else {
@@ -149,18 +150,24 @@ uint16_t CM1106_UART::get_co2() {
 
 
 /* Start calibration */
-bool CM1106_UART::start_calibration(uint16_t concentration) {
+bool CM1106_UART::start_calibration(int16_t concentration) {
     bool result = false;
 
     if (concentration >= 400 && concentration <= 1500) {
-        memcpy(buf_msg, cmd_start_calibration, sizeof(cmd_start_calibration));
+
+        // Put data
         buf_msg[3] = (concentration & 0xFF00 ) >> 8;
         buf_msg[4] = (concentration & 0xFF);
-        buf_msg[5] = calculate_cs(6);
-        serial_write_bytes(6);
+
+        // Ask start calibration
+        send_cmd_data(CM1106_CMD_START_CALIBRATION, 6);
+
+        // Wait response
+        memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
         uint8_t nb = serial_read_bytes(8, CM1106_TIMEOUT);
 
-        if (nb == 4 && buf_msg[0] == 0x16 && buf_msg[1] == 0x01 && buf_msg[2] == 0x03 && buf_msg[3] == calculate_cs(nb)) {
+        // Check response and get data
+        if (nb == 4 && valid_response(CM1106_CMD_START_CALIBRATION, nb)) {
             result = true;
 
 #ifdef CM1106_DEBUG
@@ -186,22 +193,27 @@ bool CM1106_UART::start_calibration(uint16_t concentration) {
 
 
 /* Setting ABC */
-bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, uint16_t base) {
+bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
     bool result = false;
 
     if ((open_close == CM1106_ABC_OPEN || open_close == CM1106_ABC_CLOSE) && cycle >= 1 && cycle <= 7 && base >= 400 && base <= 1499) {
-        memcpy(buf_msg, cmd_set_ABC, sizeof(cmd_set_ABC));
+
         buf_msg[3] = 0x64;
         buf_msg[4] = open_close;
         buf_msg[5] = cycle;
         buf_msg[6] = (base & 0xFF00 ) >> 8;
         buf_msg[7] = (base & 0xFF);        
         buf_msg[8] = 0x64;
-        buf_msg[9] = calculate_cs(10);
-        serial_write_bytes(10);
+
+        // Ask set ABC
+        send_cmd_data(CM1106_CMD_SET_ABC, 10);
+
+        // Wait response
+        memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
         uint8_t nb = serial_read_bytes(10, CM1106_TIMEOUT);
 
-        if (nb == 4 && buf_msg[0] == 0x16 && buf_msg[1] == 0x01 && buf_msg[2] == 0x10 && buf_msg[3] == calculate_cs(nb)) {
+        // Check response and get data
+        if (nb == 4 && valid_response(CM1106_CMD_SET_ABC, nb)) {
             result = true;
 
 #ifdef CM1106_DEBUG
@@ -235,16 +247,18 @@ bool CM1106_UART::get_ABC(CM1106_ABC *abc) {
 
     abc->open_close = 0; abc->cycle = 0; abc->base = 0;
 
-    // Get ABC parameters
-    memcpy(buf_msg, cmd_get_ABC, sizeof(cmd_get_ABC));
-    serial_write_bytes(sizeof(cmd_get_ABC));
+    // Ask get ABC parameters
+    send_cmd(CM1106_CMD_GET_ABC);
 
+    // Wait response
     uint8_t nb = serial_read_bytes(10, CM1106_TIMEOUT);
 
-    if (nb == 10 && buf_msg[0] == 0x16 && buf_msg[1] == 0x07 && buf_msg[2] == 0x0f && buf_msg[9] == calculate_cs(nb)) {
+    // Check response and get data
+    if (nb == 10 && valid_response(CM1106_CMD_GET_ABC, nb)) {
         abc->open_close = buf_msg[4];
         abc->cycle = buf_msg[5];
-        abc->base = (buf_msg[6] * 256) + buf_msg[7];        
+        //abc->base = (buf_msg[6] * 256) + buf_msg[7];
+        abc->base = (buf_msg[6] << 8) | buf_msg[7];
         result = true;
     } else {
         
@@ -309,6 +323,67 @@ uint8_t CM1106_UART::serial_read_bytes(uint8_t max_bytes, int timeout_seconds) {
 }
 
 
+/* Check if it is a valid message response of the sensor */
+bool CM1106_UART::valid_response(uint8_t cmd, uint8_t nb) {
+    bool result = false;
+
+    if (nb >= 4) {
+        if (buf_msg[nb-1] == calculate_cs(nb) && buf_msg[1] == nb-3) {
+            if (buf_msg[0] == CM1106_MSG_ACK && buf_msg[2] == cmd) {
+
+#ifdef CM1106_DEBUG      
+                CM1106_DEBUG_SERIAL.printf("DEBUG: Valid response\n");
+#endif
+                result = true;
+
+            } else if (buf_msg[0] == CM1106_MSG_NAK && nb == 4) {
+
+#ifdef CM1106_DEBUG      
+                CM1106_DEBUG_SERIAL.printf("DEBUG: Response with error 0x%02x\n", buf_msg[2]);
+                // error 0x02 = cmd not recognised, invalid checksum...
+                // If invalid length then no response.
+#endif
+
+            }
+        } else {
+
+#ifdef CM1106_DEBUG      
+                CM1106_DEBUG_SERIAL.printf("DEBUG: Checksum/length is invalid\n");
+#endif
+
+        }
+
+    }
+    else {
+
+#ifdef CM1106_DEBUG      
+                CM1106_DEBUG_SERIAL.printf("DEBUG: Invalid length\n");
+#endif
+
+    }
+    
+    return result;
+}
+
+
+/* Send command without addtional data */
+void CM1106_UART::send_cmd(uint8_t cmd) {
+    send_cmd_data(cmd, 4);    
+}
+
+
+/* Send command with addtional data */
+void CM1106_UART::send_cmd_data(uint8_t cmd, uint8_t size) {
+    if (size >= 4 && size <= CM1106_LEN_BUF_MSG) {
+        buf_msg[0] = CM1106_MSG_IP;   // Packet identifier
+        buf_msg[1] = size-3;            // Length
+        buf_msg[2] = cmd;             // Command to send
+        buf_msg[size-1] = calculate_cs(size);
+        serial_write_bytes(size);    
+    }
+}
+
+
 /* Calculate checksum */
 uint8_t CM1106_UART::calculate_cs(uint8_t nb) {
     uint8_t cs = 0;
@@ -327,7 +402,7 @@ uint8_t CM1106_UART::calculate_cs(uint8_t nb) {
     } else {
 
 #ifdef CM1106_DEBUG      
-        CM1106_DEBUG_SERIAL.printf("DEBUG: Invalid packet\n");
+        CM1106_DEBUG_SERIAL.printf("DEBUG: Invalid packet!\n");
 #endif
 
     }
@@ -343,3 +418,43 @@ void CM1106_UART::print_buffer(uint8_t size) {
     }
     CM1106_DEBUG_SERIAL.printf("(%u bytes)\n", size);
 }
+
+
+#ifdef CM1106_ADVANCED_FUNC
+
+/* Detect implemented Cubic UART commands */
+void CM1106_UART::detect_commands() {
+
+    uint8_t nb = 0;
+
+    for (uint16_t i = 0x01; i <= 0x5f; i++) {
+        send_cmd(i);
+        nb = serial_read_bytes(CM1106_LEN_BUF_MSG, CM1106_TIMEOUT);
+        if (valid_response(i, nb)) {
+            Serial.printf("Command 0x%02x implemented\n", buf_msg[2]);
+        } else {
+            Serial.printf("Command 0x%02x not available\n", buf_msg[2]);
+        }        
+    }
+}
+
+
+/* Check implemented commands */
+void CM1106_UART::test_implemented() {
+    char cmds[26] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x0d, 0x0e, 0x0f, 0x10, 0x1e, 0x1f, 0x23, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c};
+    //char cmds[1] = {0x02};
+
+    uint8_t nb = 0;
+
+    for (uint8_t i = 0; i < sizeof(cmds); i++) {
+        send_cmd(cmds[i]);
+        nb = serial_read_bytes(CM1106_LEN_BUF_MSG, CM1106_TIMEOUT);
+        if (valid_response(cmds[i], nb)) {
+            Serial.printf("Command 0x%02x implemented\n", buf_msg[2]);
+        } else {
+            Serial.printf("Command 0x%02x not available\n", buf_msg[2]);
+        }
+    }
+}
+
+#endif
