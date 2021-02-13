@@ -56,7 +56,7 @@ void CM1106_UART::get_serial_number(char sn[] ) {
     uint8_t nb = serial_read_bytes(14, CM1106_TIMEOUT);
 
     // Check response and get data
-    if (nb == 14 && valid_response(CM1106_CMD_GET_SERIAL_NUMBER, nb)) {
+    if (valid_response_len(CM1106_CMD_GET_SERIAL_NUMBER, nb, 14)) {
 
         uint16_t sn_int;
         char sn_string[5];
@@ -100,7 +100,7 @@ void CM1106_UART::get_software_version(char softver[]) {
     uint8_t nb = serial_read_bytes(15, CM1106_TIMEOUT);
 
     // Check response and get data
-    if (nb == 15 && valid_response(CM1106_CMD_GET_SOFTWARE_VERSION, nb)) {
+    if (valid_response_len(CM1106_CMD_GET_SOFTWARE_VERSION, nb, 15)) {
       strncpy(softver, (const char *)&buf_msg[3], CM1106_LEN_SOFTVER);
 
 #ifdef CM1106_DEBUG        
@@ -131,7 +131,7 @@ int16_t CM1106_UART::get_co2() {
     uint8_t nb = serial_read_bytes(8, CM1106_TIMEOUT);
 
     // Check response and get data
-    if (nb == 8 && valid_response(CM1106_CMD_GET_CO2, nb)) {
+    if (valid_response_len(CM1106_CMD_GET_CO2, nb, 8)) {
         co2 = (buf_msg[3] * 256) + buf_msg[4];
 
 #ifdef CM1106_DEBUG
@@ -164,10 +164,10 @@ bool CM1106_UART::start_calibration(int16_t concentration) {
 
         // Wait response
         memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
-        uint8_t nb = serial_read_bytes(8, CM1106_TIMEOUT);
+        uint8_t nb = serial_read_bytes(4, CM1106_TIMEOUT);
 
         // Check response and get data
-        if (nb == 4 && valid_response(CM1106_CMD_START_CALIBRATION, nb)) {
+        if (valid_response_len(CM1106_CMD_START_CALIBRATION, nb, 4)) {
             result = true;
 
 #ifdef CM1106_DEBUG
@@ -177,7 +177,7 @@ bool CM1106_UART::start_calibration(int16_t concentration) {
         } else {
 
 #ifdef CM1106_DEBUG            
-            CM1106_DEBUG_SERIAL.println("DEBUG: Inesperated response!");
+            CM1106_DEBUG_SERIAL.println("DEBUG: Error in start of calibration!");
 #endif
 
         }
@@ -198,6 +198,7 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
 
     if ((open_close == CM1106_ABC_OPEN || open_close == CM1106_ABC_CLOSE) && cycle >= 1 && cycle <= 7 && base >= 400 && base <= 1499) {
 
+        // Put ABC parameters in buffer
         buf_msg[3] = 0x64;
         buf_msg[4] = open_close;
         buf_msg[5] = cycle;
@@ -210,10 +211,10 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
 
         // Wait response
         memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
-        uint8_t nb = serial_read_bytes(10, CM1106_TIMEOUT);
+        uint8_t nb = serial_read_bytes(4, CM1106_TIMEOUT);
 
         // Check response and get data
-        if (nb == 4 && valid_response(CM1106_CMD_SET_ABC, nb)) {
+        if (valid_response_len(CM1106_CMD_SET_ABC, nb, 4)) {
             result = true;
 
 #ifdef CM1106_DEBUG
@@ -223,14 +224,14 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
         } else {
 
 #ifdef CM1106_DEBUG            
-            CM1106_DEBUG_SERIAL.println("DEBUG: Inesperated response!");
+            CM1106_DEBUG_SERIAL.println("DEBUG: Error in setting of ABC!");
 #endif
 
         }
     } else {
 
 #ifdef CM1106_DEBUG        
-        CM1106_DEBUG_SERIAL.println("DEBUG: Invalid parameters!");
+        CM1106_DEBUG_SERIAL.println("DEBUG: Invalid ABC parameters!");
 #endif
 
     }
@@ -238,7 +239,7 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
 }
 
 
-/* Setting ABC */
+/* Getting ABC */
 bool CM1106_UART::get_ABC(CM1106_ABC *abc) {
     bool result = false;
 
@@ -254,21 +255,213 @@ bool CM1106_UART::get_ABC(CM1106_ABC *abc) {
     uint8_t nb = serial_read_bytes(10, CM1106_TIMEOUT);
 
     // Check response and get data
-    if (nb == 10 && valid_response(CM1106_CMD_GET_ABC, nb)) {
+    if (valid_response_len(CM1106_CMD_GET_ABC, nb, 10)) {
         abc->open_close = buf_msg[4];
         abc->cycle = buf_msg[5];
         //abc->base = (buf_msg[6] * 256) + buf_msg[7];
         abc->base = (buf_msg[6] << 8) | buf_msg[7];
         result = true;
+
+#ifdef CM1106_DEBUG
+            CM1106_DEBUG_SERIAL.println("DEBUG: Successful getting ABC parameters");
+#endif
+
+    } else {
+
+#ifdef CM1106_DEBUG
+            CM1106_DEBUG_SERIAL.println("DEBUG: Error getting ABC parameters");
+#endif
+
+    }
+
+    return result;
+}
+
+
+/* Storing ABC data */
+bool CM1106_UART::store_ABC_data() {
+    bool result = false;
+
+    // Ask store ABC data
+    send_cmd(CM1106_CMD_STORE_ABC_DATA);
+
+    // Wait response
+    uint8_t nb = serial_read_bytes(4, CM1106_TIMEOUT);
+
+    // Check response and get data
+    if (valid_response_len(CM1106_CMD_STORE_ABC_DATA, nb, 4)) {
+        result = true;
+
+#ifdef CM1106_DEBUG            
+        CM1106_DEBUG_SERIAL.println("DEBUG: Successful storing ABC data!");
+#endif
+
     } else {
         
 #ifdef CM1106_DEBUG            
-            CM1106_DEBUG_SERIAL.println("DEBUG: Inesperated response!");
+        CM1106_DEBUG_SERIAL.println("DEBUG: Error storing ABC data!");
 #endif
 
     }
     return result;
 
+}
+
+
+/* Setting measurement period and smoothed data */
+bool CM1106_UART::set_measurement_period(int16_t period, uint8_t smoothed) {
+    bool result = false;
+
+    if (period >= 1 && period <= 600) {
+
+        // Put data in buffer
+        buf_msg[3] = (period & 0xFF00 ) >> 8;
+        buf_msg[4] = (period & 0xFF);            
+        buf_msg[5] = smoothed;
+
+        // Ask set measurement period and number of smoothed data
+        send_cmd_data(CM1106_CMD_MEASUREMENT_PERIOD, 7);
+
+        // Wait response
+        memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
+        uint8_t nb = serial_read_bytes(4, CM1106_TIMEOUT);
+
+        // Check response and get data
+        if (valid_response_len(CM1106_CMD_MEASUREMENT_PERIOD, nb, 4)) {
+            result = true;
+
+#ifdef CM1106_DEBUG
+            CM1106_DEBUG_SERIAL.println("DEBUG: Successful setting of measurement period");
+#endif
+
+        } else {
+
+#ifdef CM1106_DEBUG            
+            CM1106_DEBUG_SERIAL.println("DEBUG: Error in setting of measurement period!");
+#endif
+
+        }
+    } else {
+
+#ifdef CM1106_DEBUG
+        CM1106_DEBUG_SERIAL.println("DEBUG: Invalid measurement period!");
+#endif
+
+    }
+    return result;
+}
+
+
+/* Getting measurement period and smoothed data */
+bool CM1106_UART::get_measurement_period(int16_t *period, uint8_t *smoothed) {
+    bool result = false;
+
+    if (period == NULL || smoothed == NULL)
+        return result;
+
+    // Ask set measurement period and number of smoothed data
+    send_cmd_data(CM1106_CMD_MEASUREMENT_PERIOD, 4);
+
+    // Wait response
+    memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
+    uint8_t nb = serial_read_bytes(7, CM1106_TIMEOUT);
+
+    // Check response and get data
+    if (valid_response_len(CM1106_CMD_MEASUREMENT_PERIOD, nb, 7)) {
+        *period = (buf_msg[3] << 8) | buf_msg[4];
+        *smoothed = buf_msg[5];
+        result = true;
+
+#ifdef CM1106_DEBUG
+        CM1106_DEBUG_SERIAL.println("DEBUG: Successful setting of measurement period");
+#endif
+
+    } else {
+
+#ifdef CM1106_DEBUG            
+        CM1106_DEBUG_SERIAL.println("DEBUG: Error in setting of measurement period!");
+#endif
+
+    }
+
+    return result;
+}
+
+
+/* Setting working status */
+bool CM1106_UART::set_working_status(uint8_t mode) {
+    bool result = false;
+
+    if ((mode == CM1106_SINGLE_MEASUREMENT || mode == CM1106_CONTINUOUS_MEASUREMENT)) {
+
+        // Put measurement mode in buffer
+        buf_msg[3] = mode;
+
+        // Ask set measurement mode
+        send_cmd_data(CM1106_CMD_WORKING_STATUS, 5);
+
+        // Wait response
+        memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
+        uint8_t nb = serial_read_bytes(4, CM1106_TIMEOUT);
+
+        // Check response and get data
+        if (valid_response_len(CM1106_CMD_WORKING_STATUS, nb, 4)) {
+            result = true;
+
+#ifdef CM1106_DEBUG
+            CM1106_DEBUG_SERIAL.println("DEBUG: Successful setting of measurement mode");
+#endif
+
+        } else {
+
+#ifdef CM1106_DEBUG            
+            CM1106_DEBUG_SERIAL.println("DEBUG: Error in setting of measurement mode!");
+#endif
+
+        }
+    } else {
+
+#ifdef CM1106_DEBUG
+        CM1106_DEBUG_SERIAL.println("DEBUG: Invalid measurement mode!");
+#endif
+
+    }
+    return result;
+}
+
+
+/* Getting working status */
+bool CM1106_UART::get_working_status(uint8_t *mode) {
+    bool result = false;
+
+    if (mode == NULL)
+        return result;
+
+    // Ask set measurement mode
+    send_cmd_data(CM1106_CMD_WORKING_STATUS, 4);
+
+    // Wait response
+    memset(buf_msg, 0, CM1106_LEN_BUF_MSG);
+    uint8_t nb = serial_read_bytes(5, CM1106_TIMEOUT);
+
+    // Check response and get data
+    if (valid_response_len(CM1106_CMD_WORKING_STATUS, nb, 5)) {
+        *mode = buf_msg[3];
+        result = true;
+
+#ifdef CM1106_DEBUG
+        CM1106_DEBUG_SERIAL.println("DEBUG: Successful getting working status");
+#endif
+
+    } else {
+
+#ifdef CM1106_DEBUG            
+        CM1106_DEBUG_SERIAL.println("DEBUG: Error in getting working status!");
+#endif
+
+    }
+
+    return result;
 }
 
 
@@ -322,6 +515,21 @@ uint8_t CM1106_UART::serial_read_bytes(uint8_t max_bytes, int timeout_seconds) {
     return nb;
 }
 
+bool CM1106_UART::valid_response_len(uint8_t cmd, uint8_t nb, uint8_t len) {
+    bool result = false;
+
+    if (nb == len) {
+        result = valid_response(cmd, nb);
+    } else {
+
+#ifdef CM1106_DEBUG      
+                CM1106_DEBUG_SERIAL.printf("DEBUG: Unexpected length\n");
+#endif
+
+    }
+    return result;
+
+}
 
 /* Check if it is a valid message response of the sensor */
 bool CM1106_UART::valid_response(uint8_t cmd, uint8_t nb) {

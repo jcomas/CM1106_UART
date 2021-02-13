@@ -73,6 +73,15 @@ SOFTWARE.
     #define CM1106_CMD_GET_SOFTWARE_VERSION   0x1E   // Ask software version of sensor
     #define CM1106_CMD_GET_SERIAL_NUMBER      0x1F   // Ask serial number of sensor
 
+    /* For low power version CM1106SL-N */
+    #define CM1106_CMD_STORE_ABC_DATA         0x11   // Ask ABC calibration storing data
+    #define CM1106_CMD_MEASUREMENT_PERIOD     0x50   // Set/check measurment period and number of smoothed data
+    #define CM1106_CMD_WORKING_STATUS         0x51   // Set/check working status
+
+    #define CM1106_SINGLE_MEASUREMENT            0   // Single measurement mode (command A)
+    #define CM1106_CONTINUOUS_MEASUREMENT        1   // Continuous measurment mode (command B)
+
+
     struct CM1106_ABC {
         uint8_t open_close;
         uint8_t cycle; 
@@ -94,11 +103,18 @@ SOFTWARE.
             void get_software_version(char softver[]);                          // Get software version
             int16_t get_co2();                                                  // Get CO2 value in ppm
             bool start_calibration(int16_t concentration);                      // Start single point calibration
-                                                                                   // Before calibration, please make sure CO 2 concentration in current ambient 
+                                                                                   // Before calibration, please make sure CO2 concentration in current ambient 
                                                                                    // is calibration target value. Keeping this CO2 concentration for two 2 minutes,
                                                                                    // and then began calibration.
             bool set_ABC(uint8_t open_close, uint8_t cycle, int16_t base);      // Set ABC parameters (enable (open)/disable(close) auto calibration, cycle days, baseline co2)
             bool get_ABC(CM1106_ABC *abc);                                      // Get ABC parameters
+
+            /* For low power version CM1106SL-N */
+            bool set_measurement_period(int16_t period, uint8_t smoothed);      // Set measurement period and number of smoothed data
+            bool get_measurement_period(int16_t *period, uint8_t *smoothed);    // Get measurement period and number of smoothed data
+            bool set_working_status(uint8_t mode);                              // Set working status
+            bool get_working_status(uint8_t *mode);                             // Get working status
+            bool store_ABC_data();                                              // Store ABC data
 
 #ifdef CM1106_ADVANCED_FUNC
             void detect_commands();                                             // Detect implemented commands
@@ -109,11 +125,10 @@ SOFTWARE.
             Stream* mySerial;                                                   // Communication serial with the sensor
             uint8_t buf_msg[CM1106_LEN_BUF_MSG];                                // Buffer for communication messages with the sensor
 
-
-
             void serial_write_bytes(uint8_t size);                              // Send bytes to sensor
             uint8_t serial_read_bytes(uint8_t max_bytes, int timeout_seconds);  // Read received bytes from sensor
             bool valid_response(uint8_t cmd, uint8_t nb);                       // Check if response is valid according to sent command
+            bool valid_response_len(uint8_t cmd, uint8_t nb, uint8_t len);      // Check if response is valid according to sent command and checking expected total length
             void send_cmd(uint8_t cmd);                                         // Send command without additional data
             void send_cmd_data(uint8_t cmd, uint8_t size);                      // Send command with additional data
             uint8_t calculate_cs(uint8_t nb);                                   // Calculate checksum of packet
