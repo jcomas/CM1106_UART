@@ -8,3 +8,4 @@ Please, for I2C communication use https://github.com/neosarchizo/cm1106_i2c
 Other projects:  
 * Test CM1106 in Python: https://github.com/agnunez/moco2/blob/master/calibration/CM1106calibration.py  
 * Arduino NANO + Display Oled + Sensor CM1106: https://github.com/miguelangelcasanova/codos/tree/master/dev/arduino/nano/codosnanoCM1106
+* CanAirIO Air Quality Sensors Library: https://github.com/kike-canaries/canairio_sensorlib
