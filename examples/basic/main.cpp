@@ -1,15 +1,23 @@
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include "cm1106_uart.h"
 
-// Modify according pins attached to CM1106 sensor
-#define CM1106_RX_PIN 13                                   // Rx pin which the CM1106 Tx pin is attached to
-#define CM1106_TX_PIN 15                                   // Tx pin which the CM1106 Rx pin is attached to
 
-#define BAUDRATE 9600                                      // Device to CM1106 Serial baudrate (should not be changed)
+#ifdef USE_SOFTWARE_SERIAL
+    // Modify if CM1106 is connected using softwareserial
+    #define CM1106_RX_PIN 14                                   // Rx pin which the CM1106 Tx pin is attached to
+    #define CM1106_TX_PIN 12                                   // Tx pin which the CM1106 Rx pin is attached to
+    SoftwareSerial CM1106_serial(CM1106_RX_PIN, CM1106_TX_PIN);
+#else
+    // Modify if CM1106 is attached to a hardware port
+    #define CM1106_serial Serial2
+#endif
 
+#ifdef NODEMCUV2
+    #define CONSOLE_BAUDRATE 74880
+#else    
+    #define CONSOLE_BAUDRATE 115200
+#endif    
 
-SoftwareSerial CM1106_serial(CM1106_RX_PIN, CM1106_TX_PIN);
 
 CM1106_UART *sensor_CM1106;
 CM1106_sensor sensor;
@@ -18,20 +26,31 @@ CM1106_ABC abc;
 
 void setup() {
 
-    // Initialize serial communication
-    Serial.begin(115200);
+    // Initialize console serial communication
+    Serial.begin(CONSOLE_BAUDRATE);
     Serial.println("");
 
+    Serial.println("Init");
+
     // Initialize sensor
-    CM1106_serial.begin(BAUDRATE);
+    CM1106_serial.begin(CM1106_BAUDRATE);
     sensor_CM1106 = new CM1106_UART(CM1106_serial);
 
     // Check if CM1106 is available
     sensor_CM1106->get_software_version(sensor.softver);
-    if (strncmp(sensor.softver, "CM", 2)) {
-        Serial.printf("CM1106 not found!");
-       while (1) { delay(1); };
-    } 
+    int len = strlen(sensor.softver);
+    if (len > 0) {
+        if (len >= 10 && !strncmp(sensor.softver+len-5, "SL-NS", 5)) {
+            Serial.println("CM1106SL-NS detected");
+        } else if (!strncmp(sensor.softver, "CM", 2)) {
+            Serial.println("CM1106 detected");
+        } else {
+            Serial.println("CM1106 unknown version");
+        }
+    } else {
+        Serial.println("CM1106 not found!");
+        while (1) { delay(1); };
+    }     
 
     // Show sensor info
     Serial.println(">>> Cubic CM1106 NDIR CO2 sensor <<<");  
@@ -60,7 +79,6 @@ void setup() {
     sensor_CM1106->start_calibration(400);
 
     Serial.println("Setup done!");
-
 }
 
 
