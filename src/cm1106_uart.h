@@ -27,27 +27,55 @@ SOFTWARE.
 #ifndef _CM1106_UART
     #define _CM1106_UART
 
-    #include "Arduino.h"    
-    #include <SoftwareSerial.h>
+    #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_SAM21D || defined ARDUINO_ARCH_ESP32 || defined ARDUINO_SAM_DUE || ARDUINO_ARCH_APOLLO3
+        #undef USE_SOFTWARE_SERIAL
+    #else
+        #define USE_SOFTWARE_SERIAL
+    #endif
 
+    #include "Arduino.h"
 
-    //#define CM1106_DEBUG  1             // Uncomment for debug messages
+    #ifdef USE_SOFTWARE_SERIAL       
+        #include <SoftwareSerial.h>
+    #endif
 
-    #if (CM1106_DEBUG)
-        #define _CM1106_DEBUG_SERIAL 1   // Serial communication for debug: 0 = Softserial, 1 = Hardware Serial, 2 = Hardware Serial Port 2
+    #define CM1106_LOG_LEVEL_NONE       (0)
+    #define CM1106_LOG_LEVEL_ERROR      (1)
+    #define CM1106_LOG_LEVEL_WARN       (2)
+    #define CM1106_LOG_LEVEL_INFO       (3)
+    #define CM1106_LOG_LEVEL_DEBUG      (4)
+    #define CM1106_LOG_LEVEL_VERBOSE    (5)
+
+    #ifdef CORE_DEBUG_LEVEL
+        #define CM1106_LOG_LEVEL CORE_DEBUG_LEVEL
+    #else
+        #define CM1106_LOG_LEVEL CM1106_LOG_LEVEL_NONE
     #endif
 
 
-    /* Serial port for debug */
-    #if (_CM1106_DEBUG_SERIAL == 0)
-        #define CM1106_DEBUG_SERIAL_RX 13
-        #define CM1106_DEBUG_SERIAL_TX 15
-    #elif (_CM1106_DEBUG_SERIAL == 1)
-        #define CM1106_DEBUG_SERIAL Serial
-    #elif (_CM1106_DEBUG_SERIAL == 2)
-        #define CM1106_DEBUG_SERIAL Serial2
+    #if (CM1106_LOG_LEVEL > CM1106_LOG_LEVEL_NONE)
+
+        /* Serial port for debug */
+
+        // Uncomment if you use softwareserial for debug
+        //#define CM1106_DEBUG_SOFTWARE_SERIAL
+        
+        #ifdef CM1106_DEBUG_SOFTWARE_SERIAL
+            /* Modify if you use softwareserial for debug */
+            #define CM1106_DEBUG_SERIAL_RX 13
+            #define CM1106_DEBUG_SERIAL_TX 15
+        #else
+            /* Modify if you use hardware serial for debug */
+            #define CM1106_DEBUG_SERIAL Serial
+        #endif
+
+        /* Debug format */
+        #define CM1106_LOG(format, ...) CM1106_DEBUG_SERIAL.printf(format, ##__VA_ARGS__)
+    #else
+        #define CM1106_LOG(format, ...)
     #endif
 
+    #define CM1106_BAUDRATE 9600         // Device to CM1106 Serial baudrate (should not be changed)
 
     //#define CM1106_ADVANCED_FUNC  1      // Don't uncomment, can be dangerous, internal use functions
 
@@ -115,6 +143,7 @@ SOFTWARE.
             bool set_working_status(uint8_t mode);                              // Set working status
             bool get_working_status(uint8_t *mode);                             // Get working status
             bool store_ABC_data();                                              // Store ABC data
+//            void test_cmd();  
 
 #ifdef CM1106_ADVANCED_FUNC
             void detect_commands();                                             // Detect implemented commands
