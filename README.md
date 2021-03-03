@@ -1,3 +1,5 @@
+[![PlatformIO](https://github.com/jcomas/CM1106_UART/workflows/PlatformIO/badge.svg)](https://github.com/jcomas/CM1106_UART/workflows/actions/)
+
 # CM1106_UART
 CM1106 Library for serial communication (UART)
 
