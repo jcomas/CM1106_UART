@@ -21,15 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-*/    
+*/
 
 
 #include "cm1106_uart.h"
+#include "time.h"
 
 #if (CM1106_LOG_LEVEL > CM1106_LOG_LEVEL_NONE)
     #ifdef CM1106_DEBUG_SOFTWARE_SERIAL
         SoftwareSerial CM1106_DEBUG_SERIAL(CM1106_DEBUG_SERIAL_RX, CM1106_DEBUG_SERIAL_TX);
-    #endif        
+    #endif
 #endif
 
 /* Initialize */
@@ -59,12 +60,12 @@ void CM1106_UART::get_serial_number(char sn[] ) {
     if (valid_response_len(CM1106_CMD_GET_SERIAL_NUMBER, nb, 14)) {
 
         uint16_t sn_int;
-        char sn_string[5];
+        char sn_string[6];
 
         for (int i = 0; i < 5; i++)
         {
             sn_int = ((buf_msg[3 + 2 * i] & 0x00FF) << 8) | (buf_msg[4 + 2 * i] & 0x00FF);
-            snprintf(sn_string, sizeof(sn_string)-1, "%04d", sn_int);
+            snprintf(sn_string, sizeof(sn_string), "%04d", sn_int);
             strcat(sn, sn_string);
         }
         CM1106_LOG("DEBUG: Serial number: %s\n", sn);
@@ -81,7 +82,7 @@ void CM1106_UART::get_software_version(char softver[]) {
 
     if (softver == NULL) {
         return;
-    }    
+    }
 
     strcpy(softver, "");
 
@@ -99,7 +100,7 @@ void CM1106_UART::get_software_version(char softver[]) {
     } else {
         CM1106_LOG("DEBUG: Software version not available!\n");
     }
-    
+
 }
 
 
@@ -151,7 +152,7 @@ bool CM1106_UART::start_calibration(int16_t concentration) {
             CM1106_LOG("DEBUG: Error in start of calibration!\n");
         }
 
-    } else {     
+    } else {
        CM1106_LOG("DEBUG: Invalid CO2 value! Valid range is 400-1500 ppm\n");
     }
 
@@ -170,7 +171,7 @@ bool CM1106_UART::set_ABC(uint8_t open_close, uint8_t cycle, int16_t base) {
         buf_msg[4] = open_close;
         buf_msg[5] = cycle;
         buf_msg[6] = (base & 0xFF00 ) >> 8;
-        buf_msg[7] = (base & 0xFF);        
+        buf_msg[7] = (base & 0xFF);
         buf_msg[8] = 0x64;
 
         // Ask set ABC
@@ -239,7 +240,7 @@ bool CM1106_UART::store_ABC_data() {
 
     // Check response and get data
     if (valid_response_len(CM1106_CMD_STORE_ABC_DATA, nb, 4)) {
-        result = true; 
+        result = true;
         CM1106_LOG("DEBUG: Successful storing ABC data!\n");
     } else {
         CM1106_LOG("DEBUG: Error storing ABC data!\n");
@@ -257,7 +258,7 @@ bool CM1106_UART::set_measurement_period(int16_t period, uint8_t smoothed) {
 
         // Put data in buffer
         buf_msg[3] = (period & 0xFF00 ) >> 8;
-        buf_msg[4] = (period & 0xFF);            
+        buf_msg[4] = (period & 0xFF);
         buf_msg[5] = smoothed;
 
         // Ask set measurement period and number of smoothed data
@@ -373,7 +374,7 @@ bool CM1106_UART::get_working_status(uint8_t *mode) {
 /* Send bytes to sensor */
 void CM1106_UART::serial_write_bytes(uint8_t size) {
 
-#if (CM1106_LOG_LEVEL > CM1106_LOG_LEVEL_NONE)     
+#if (CM1106_LOG_LEVEL > CM1106_LOG_LEVEL_NONE)
     CM1106_LOG("DEBUG: Bytes to send => ");
     print_buffer(size);
 #endif
@@ -399,7 +400,7 @@ uint8_t CM1106_UART::serial_read_bytes(uint8_t max_bytes, int timeout_seconds) {
             if(mySerial->available()) {
                 nb = mySerial->readBytes(buf_msg, max_bytes);
                 readed = true;
-            }            
+            }
             time(&end_t);
         }
 
@@ -453,14 +454,14 @@ bool CM1106_UART::valid_response(uint8_t cmd, uint8_t nb) {
     } else {
         CM1106_LOG("DEBUG: Invalid length\n");
     }
-    
+
     return result;
 }
 
 
 /* Send command without addtional data */
 void CM1106_UART::send_cmd(uint8_t cmd) {
-    send_cmd_data(cmd, 4);    
+    send_cmd_data(cmd, 4);
 }
 
 
@@ -471,7 +472,7 @@ void CM1106_UART::send_cmd_data(uint8_t cmd, uint8_t size) {
         buf_msg[1] = size-3;            // Length
         buf_msg[2] = cmd;             // Command to send
         buf_msg[size-1] = calculate_cs(size);
-        serial_write_bytes(size);    
+        serial_write_bytes(size);
     }
 }
 
@@ -520,7 +521,7 @@ void CM1106_UART::detect_commands() {
             CM1106_LOG("Command 0x%02x implemented\n", buf_msg[2]);
         } else {
             CM1106_LOG("Command 0x%02x not available\n", buf_msg[2]);
-        }        
+        }
     }
 }
 
